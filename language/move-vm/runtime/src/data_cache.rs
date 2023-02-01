@@ -7,7 +7,7 @@ use crate::loader::Loader;
 use move_binary_format::errors::*;
 use move_core_types::{
     account_address::AccountAddress,
-    effects::{AccountChangeSet, ChangeSet, Event, Op},
+    effects::{Event, Op},
     gas_algebra::NumBytes,
     identifier::Identifier,
     language_storage::{ModuleId, TypeTag},
@@ -17,10 +17,11 @@ use move_core_types::{
 };
 use move_vm_types::{
     data_store::DataStore,
+    effects::{AccountChangeSet, ChangeSet, Data},
     loaded_data::runtime_types::Type,
     values::{GlobalValue, Value},
 };
-use std::collections::btree_map::BTreeMap;
+use std::{collections::btree_map::BTreeMap, sync::Arc};
 
 pub struct AccountDataCache {
     data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue)>,
@@ -99,16 +100,11 @@ impl<'r, 'l, S: MoveResolver> TransactionDataCache<'r, 'l, S> {
 
                 match op {
                     Op::New(val) => {
-                        let resource_blob = val
-                            .simple_serialize(&layout)
-                            .ok_or_else(|| PartialVMError::new(StatusCode::INTERNAL_TYPE_ERROR))?;
-                        resources.insert(struct_tag, Op::New(resource_blob));
+                        resources.insert(struct_tag, Op::New(Data::Cached(Arc::new(val), layout)));
                     }
                     Op::Modify(val) => {
-                        let resource_blob = val
-                            .simple_serialize(&layout)
-                            .ok_or_else(|| PartialVMError::new(StatusCode::INTERNAL_TYPE_ERROR))?;
-                        resources.insert(struct_tag, Op::Modify(resource_blob));
+                        resources
+                            .insert(struct_tag, Op::Modify(Data::Cached(Arc::new(val), layout)));
                     }
                     Op::Delete => {
                         resources.insert(struct_tag, Op::Delete);

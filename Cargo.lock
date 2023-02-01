@@ -3796,6 +3796,7 @@ dependencies = [
 name = "move-vm-types"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bcs",
  "move-binary-format",
  "move-core-types",

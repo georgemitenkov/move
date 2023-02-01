@@ -13,7 +13,7 @@ use move_binary_format::{
 };
 use move_core_types::{
     account_address::AccountAddress,
-    effects::{ChangeSet, Event},
+    effects::{ChangeSet as BlobChangeSet, Event},
     identifier::IdentStr,
     language_storage::{ModuleId, TypeTag},
     resolver::MoveResolver,
@@ -21,6 +21,7 @@ use move_core_types::{
 };
 use move_vm_types::{
     data_store::DataStore,
+    effects::ChangeSet,
     gas::GasMeter,
     loaded_data::runtime_types::{CachedStructIndex, StructType, Type},
 };
@@ -238,14 +239,28 @@ impl<'r, 'l, S: MoveResolver> Session<'r, 'l, S> {
     /// This function should always succeed with no user errors returned, barring invariant violations.
     ///
     /// This MUST NOT be called if there is a previous invocation that failed with an invariant violation.
-    pub fn finish(self) -> VMResult<(ChangeSet, Vec<Event>)> {
+    pub fn finish(self) -> VMResult<(BlobChangeSet, Vec<Event>)> {
+        let (change_set, events) = self.pause()?;
+        Ok((change_set.try_into()?, events))
+    }
+
+    /// Same like `finish`, but also extracts the native context extensions from the session.
+    pub fn finish_with_extensions(
+        self,
+    ) -> VMResult<(BlobChangeSet, Vec<Event>, NativeContextExtensions<'r>)> {
+        let (change_set, events, native_extensions) = self.pause_with_extensions()?;
+        Ok((change_set.try_into()?, events, native_extensions))
+    }
+
+    /// Same like `finish`, but does not serialize data to bytes.
+    pub fn pause(self) -> VMResult<(ChangeSet, Vec<Event>)> {
         self.data_cache
             .into_effects()
             .map_err(|e| e.finish(Location::Undefined))
     }
 
-    /// Same like `finish`, but also extracts the native context extensions from the session.
-    pub fn finish_with_extensions(
+    /// Same like `finish_with_extensions`, but does not serialize data to bytes.
+    pub fn pause_with_extensions(
         self,
     ) -> VMResult<(ChangeSet, Vec<Event>, NativeContextExtensions<'r>)> {
         let Session {
