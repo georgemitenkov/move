@@ -11,7 +11,6 @@ use move_core_types::{
     gas_algebra::NumBytes,
     identifier::Identifier,
     language_storage::{ModuleId, TypeTag},
-    resolver::MoveResolver,
     value::MoveTypeLayout,
     vm_status::StatusCode,
 };
@@ -19,6 +18,7 @@ use move_vm_types::{
     data_store::DataStore,
     effects::{AccountChangeSet, ChangeSet, Data},
     loaded_data::runtime_types::Type,
+    resolver::{MoveResolver, Resource},
     values::{GlobalValue, Value},
 };
 use std::{collections::btree_map::BTreeMap, sync::Arc};
@@ -185,21 +185,46 @@ impl<'r, 'l, S: MoveResolver> DataStore for TransactionDataCache<'r, 'l, S> {
             let ty_layout = self.loader.type_to_type_layout(ty)?;
 
             let gv = match self.remote.get_resource(&addr, &ty_tag) {
-                Ok(Some(blob)) => {
-                    load_res = Some(Some(NumBytes::new(blob.len() as u64)));
-                    let val = match Value::simple_deserialize(&blob, &ty_layout) {
-                        Some(val) => val,
-                        None => {
-                            let msg =
-                                format!("Failed to deserialize resource {} at {}!", ty_tag, addr);
-                            return Err(PartialVMError::new(
-                                StatusCode::FAILED_TO_DESERIALIZE_RESOURCE,
-                            )
-                            .with_message(msg));
+                Ok(Some(resource)) => {
+                    match resource {
+                        Resource::Serialized(blob) => {
+                            load_res = Some(Some(NumBytes::new(blob.len() as u64)));
+                            let val = match Value::simple_deserialize(blob.as_ref(), &ty_layout) {
+                                Some(val) => val,
+                                None => {
+                                    let msg = format!(
+                                        "Failed to deserialize resource {} at {}!",
+                                        ty_tag, addr
+                                    );
+                                    return Err(PartialVMError::new(
+                                        StatusCode::FAILED_TO_DESERIALIZE_RESOURCE,
+                                    )
+                                    .with_message(msg));
+                                }
+                            };
+                            GlobalValue::cached(val)?
                         }
-                    };
+                        Resource::Cached(value) => {
+                            // TODO: Fix this to avoid serialisation!
+                            let blob = match value.simple_serialize(&ty_layout) {
+                                Some(blob) => blob,
+                                None => {
+                                    let msg = format!(
+                                        "Failed to serialize resource {} at {}!",
+                                        ty_tag, addr
+                                    );
+                                    return Err(PartialVMError::new(
+                                        StatusCode::INTERNAL_TYPE_ERROR,
+                                    )
+                                    .with_message(msg));
+                                }
+                            };
+                            load_res = Some(Some(NumBytes::new(blob.len() as u64)));
 
-                    GlobalValue::cached(val)?
+                            // TODO: Revisit once we can support CoW in GlobalValueImpl.
+                            GlobalValue::cached(value.copy_value()?)?
+                        }
+                    }
                 }
                 Ok(None) => {
                     load_res = Some(None);

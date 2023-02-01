@@ -28,15 +28,14 @@ use move_bytecode_verifier::verify_module;
 use move_compiler::{compiled_unit::AnnotatedCompiledUnit, Compiler};
 use move_core_types::{
     account_address::AccountAddress,
-    effects::{ChangeSet, Op},
+    effects::Op,
     language_storage::TypeTag,
-    resolver::MoveResolver,
     value::MoveValue,
     vm_status::{StatusCode, VMStatus},
 };
 use move_vm_runtime::move_vm::MoveVM;
 use move_vm_test_utils::{DeltaStorage, InMemoryStorage};
-use move_vm_types::gas::UnmeteredGasMeter;
+use move_vm_types::{effects::ChangeSet, gas::UnmeteredGasMeter, resolver::MoveResolver};
 use once_cell::sync::Lazy;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::{fs, io::Write, panic, thread};

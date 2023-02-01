@@ -43,8 +43,15 @@ use move_vm_test_utils::{
     gas_schedule::{zero_cost_schedule, CostTable, Gas, GasCost, GasStatus},
     InMemoryStorage,
 };
+use move_vm_types::resolver::Resource;
 use rayon::prelude::*;
-use std::{collections::BTreeMap, io::Write, marker::Send, sync::Mutex, time::Instant};
+use std::{
+    collections::BTreeMap,
+    io::Write,
+    marker::Send,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use move_vm_runtime::native_extensions::NativeContextExtensions;
 #[cfg(feature = "evm-backend")]
@@ -123,8 +130,9 @@ fn print_resources_and_extensions(
     for (account_addr, account_state) in cs.accounts() {
         writeln!(&mut buf, "0x{}:", account_addr.short_str_lossless())?;
 
-        for (tag, resource_op) in account_state.resources() {
-            if let Op::New(resource) | Op::Modify(resource) = resource_op {
+        for (tag, op) in account_state.resources() {
+            if let Op::New(blob) | Op::Modify(blob) = op {
+                let resource = Resource::Serialized(Arc::new(blob.clone()));
                 writeln!(
                     &mut buf,
                     "\t{}",

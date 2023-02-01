@@ -21,15 +21,17 @@ use move_core_types::{
     effects::{ChangeSet, Op},
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag},
-    resolver::{ModuleResolver, ResourceResolver},
+    resolver::ModuleResolver,
 };
 use move_prover_test_utils::{baseline_test::verify_or_update_baseline, extract_test_directives};
 use move_vm_test_utils::gas_schedule::GasStatus;
+use move_vm_types::resolver::{Resource, ResourceResolver};
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, VecDeque},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Arc,
 };
 
 const TEST_ADDR: &str = "0x3";
@@ -395,14 +397,14 @@ impl<'a> ResourceResolver for HarnessProxy<'a> {
         &self,
         address: &AccountAddress,
         typ: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
+    ) -> Result<Option<Resource>, Self::Error> {
         let res = self
             .harness
             .resource_store
             .borrow()
             .get(&(*address, typ.clone()))
             .cloned();
-        Ok(res)
+        Ok(res.map(|blob| Resource::Serialized(Arc::new(blob))))
     }
 }
 

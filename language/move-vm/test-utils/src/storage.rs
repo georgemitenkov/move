@@ -5,14 +5,19 @@
 use anyhow::{bail, Result};
 use move_core_types::{
     account_address::AccountAddress,
-    effects::{AccountChangeSet, ChangeSet, Op},
+    effects::{AccountChangeSet as BlobAccountChangeSet, Op},
     identifier::Identifier,
     language_storage::{ModuleId, StructTag},
-    resolver::{ModuleResolver, MoveResolver, ResourceResolver},
+    resolver::{ModuleResolver, ResourceResolver as ResourceBlobResolver},
+};
+use move_vm_types::{
+    effects::{AccountChangeSet, ChangeSet},
+    resolver::{MoveResolver, Resource, ResourceResolver},
 };
 use std::{
     collections::{btree_map, BTreeMap},
     fmt::Debug,
+    sync::Arc,
 };
 
 #[cfg(feature = "table-extension")]
@@ -46,7 +51,7 @@ impl ResourceResolver for BlankStorage {
         &self,
         _address: &AccountAddress,
         _tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
+    ) -> Result<Option<Resource>, Self::Error> {
         Ok(None)
     }
 }
@@ -91,10 +96,15 @@ impl<'a, 'b, S: ResourceResolver> ResourceResolver for DeltaStorage<'a, 'b, S> {
         &self,
         address: &AccountAddress,
         tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, S::Error> {
+    ) -> Result<Option<Resource>, S::Error> {
         if let Some(account_storage) = self.delta.accounts().get(address) {
-            if let Some(blob_opt) = account_storage.resources().get(tag) {
-                return Ok(blob_opt.clone().ok());
+            if let Some(op) = account_storage.resources().get(tag) {
+                let resource = if let Op::New(data) | Op::Modify(data) = op {
+                    Some(data.into())
+                } else {
+                    None
+                };
+                return Ok(resource);
             }
         }
 
@@ -186,7 +196,9 @@ where
 
 impl InMemoryAccountStorage {
     fn apply(&mut self, account_changeset: AccountChangeSet) -> Result<()> {
-        let (modules, resources) = account_changeset.into_inner();
+        let account_change_set: BlobAccountChangeSet =
+            account_changeset.try_into().expect("cannot serialize data");
+        let (modules, resources) = account_change_set.into_inner();
         apply_changes(&mut self.modules, modules)?;
         apply_changes(&mut self.resources, resources)?;
         Ok(())
@@ -296,6 +308,25 @@ impl ModuleResolver for InMemoryStorage {
 }
 
 impl ResourceResolver for InMemoryStorage {
+    type Error = ();
+
+    fn get_resource(
+        &self,
+        address: &AccountAddress,
+        tag: &StructTag,
+    ) -> Result<Option<Resource>, Self::Error> {
+        if let Some(account_storage) = self.accounts.get(address) {
+            return Ok(account_storage
+                .resources
+                .get(tag)
+                .cloned()
+                .map(|blob| Resource::Serialized(Arc::new(blob))));
+        }
+        Ok(None)
+    }
+}
+
+impl ResourceBlobResolver for InMemoryStorage {
     type Error = ();
 
     fn get_resource(

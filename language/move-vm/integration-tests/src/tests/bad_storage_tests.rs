@@ -6,16 +6,20 @@ use crate::compiler::{as_module, as_script, compile_units};
 use move_binary_format::errors::{Location, PartialVMError, VMError};
 use move_core_types::{
     account_address::AccountAddress,
-    effects::{ChangeSet, Op},
+    effects::Op,
     identifier::Identifier,
     language_storage::{ModuleId, StructTag},
-    resolver::{ModuleResolver, ResourceResolver},
+    resolver::ModuleResolver,
     value::{serialize_values, MoveValue},
     vm_status::{StatusCode, StatusType},
 };
 use move_vm_runtime::move_vm::MoveVM;
 use move_vm_test_utils::{DeltaStorage, InMemoryStorage};
-use move_vm_types::gas::UnmeteredGasMeter;
+use move_vm_types::{
+    effects::ChangeSet,
+    gas::UnmeteredGasMeter,
+    resolver::{Resource, ResourceResolver},
+};
 
 const TEST_ADDR: AccountAddress = AccountAddress::new([42; AccountAddress::LENGTH]);
 
@@ -102,7 +106,7 @@ fn test_malformed_resource() {
     )
     .map(|_| ())
     .unwrap();
-    let (changeset, _) = sess.finish().unwrap();
+    let (changeset, _) = sess.pause().unwrap();
     storage.apply(changeset).unwrap();
 
     // Execut the second script and make sure it succeeds. This script simply checks
@@ -522,7 +526,7 @@ impl ResourceResolver for BogusStorage {
         &self,
         _address: &AccountAddress,
         _tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
+    ) -> Result<Option<Resource>, Self::Error> {
         Err(PartialVMError::new(self.bad_status_code).finish(Location::Undefined))
     }
 }

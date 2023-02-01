@@ -16,15 +16,17 @@ use move_core_types::{
     identifier::Identifier,
     language_storage::{ModuleId, StructTag, TypeTag},
     parser,
-    resolver::{ModuleResolver, ResourceResolver},
+    resolver::{ModuleResolver, ResourceResolver as BlobResourceResolver},
 };
 use move_disassembler::disassembler::Disassembler;
 use move_ir_types::location::Spanned;
 use move_resource_viewer::{AnnotatedMoveStruct, AnnotatedMoveValue, MoveValueAnnotator};
+use move_vm_types::resolver::{Resource, ResourceResolver};
 use std::{
     convert::{TryFrom, TryInto},
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 type Event = (Vec<u8>, u64, TypeTag, Vec<u8>);
@@ -211,9 +213,10 @@ impl OnDiskStateView {
                     t => bail!("Expected to parse struct tag, but got {}", t),
                 };
                 match Self::get_bytes(resource_path)? {
-                    Some(resource_data) => {
-                        Some(MoveValueAnnotator::new(self).view_resource(&id, &resource_data)?)
-                    }
+                    Some(resource_data) => Some(
+                        MoveValueAnnotator::new(self)
+                            .view_resource(&id, Resource::Serialized(Arc::new(resource_data)))?,
+                    ),
                     None => None,
                 }
             }),
@@ -407,7 +410,7 @@ impl ModuleResolver for OnDiskStateView {
     }
 }
 
-impl ResourceResolver for OnDiskStateView {
+impl BlobResourceResolver for OnDiskStateView {
     type Error = anyhow::Error;
 
     fn get_resource(
@@ -416,6 +419,19 @@ impl ResourceResolver for OnDiskStateView {
         struct_tag: &StructTag,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
         self.get_resource_bytes(*address, struct_tag.clone())
+    }
+}
+
+impl ResourceResolver for OnDiskStateView {
+    type Error = anyhow::Error;
+
+    fn get_resource(
+        &self,
+        address: &AccountAddress,
+        struct_tag: &StructTag,
+    ) -> Result<Option<Resource>, Self::Error> {
+        self.get_resource_bytes(*address, struct_tag.clone())
+            .map(|maybe_bytes| maybe_bytes.map(|blob| Resource::Serialized(Arc::new(blob))))
     }
 }
 

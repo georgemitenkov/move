@@ -19,12 +19,15 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag, TypeTag},
-    resolver::{ModuleResolver, ResourceResolver},
+    resolver::ModuleResolver,
     u256::U256,
     value::{serialize_values, MoveValue},
     vm_status::{StatusCode, StatusType},
 };
-use move_vm_types::gas::UnmeteredGasMeter;
+use move_vm_types::{
+    gas::UnmeteredGasMeter,
+    resolver::{Resource, ResourceResolver},
+};
 
 // make a script with a given signature for main.
 fn make_script(parameters: Signature) -> Vec<u8> {
@@ -262,7 +265,7 @@ impl ResourceResolver for RemoteStore {
         &self,
         _address: &AccountAddress,
         _tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
+    ) -> Result<Option<Resource>, Self::Error> {
         Ok(None)
     }
 }

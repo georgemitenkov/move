@@ -23,7 +23,6 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, TypeTag},
-    resolver::MoveResolver,
     value::MoveTypeLayout,
     vm_status::StatusCode,
 };
@@ -31,6 +30,7 @@ use move_vm_types::{
     data_store::DataStore,
     gas::GasMeter,
     loaded_data::runtime_types::Type,
+    resolver::MoveResolver,
     values::{Locals, Reference, VMValueCast, Value},
 };
 use std::{borrow::Borrow, collections::BTreeSet, sync::Arc};

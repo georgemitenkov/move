@@ -31,10 +31,12 @@ use move_ir_types::location::Loc;
 use move_package::compilation::compiled_package::CompiledUnitWithSource;
 use move_resource_viewer::{AnnotatedMoveStruct, MoveValueAnnotator};
 use move_vm_test_utils::gas_schedule::Gas;
+use move_vm_types::resolver::Resource;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
     path::Path,
+    sync::Arc,
 };
 
 pub mod on_disk_state_view;
@@ -195,8 +197,8 @@ pub(crate) fn explain_execution_effects(
                         struct_tag, blob, bytes_to_write
                     );
                     // Print new resource
-                    let resource =
-                        MoveValueAnnotator::new(state).view_resource(struct_tag, blob)?;
+                    let resource = MoveValueAnnotator::new(state)
+                        .view_resource(struct_tag, Resource::Serialized(Arc::new(blob.clone())))?;
                     print_struct_with_indent(&resource, 6)
                 }
                 Op::Modify(blob) => {
@@ -209,10 +211,10 @@ pub(crate) fn explain_execution_effects(
                     let resource_data = state
                         .get_resource_bytes(*addr, struct_tag.clone())?
                         .unwrap();
-                    let resource_old =
-                        MoveValueAnnotator::new(state).view_resource(struct_tag, &resource_data)?;
-                    let resource_new =
-                        MoveValueAnnotator::new(state).view_resource(struct_tag, blob)?;
+                    let resource_old = MoveValueAnnotator::new(state)
+                        .view_resource(struct_tag, Resource::Serialized(Arc::new(resource_data)))?;
+                    let resource_new = MoveValueAnnotator::new(state)
+                        .view_resource(struct_tag, Resource::Serialized(Arc::new(blob.clone())))?;
 
                     print_struct_diff_with_indent(&resource_old, &resource_new, 8)
                 }
@@ -225,8 +227,8 @@ pub(crate) fn explain_execution_effects(
                     let resource_data = state
                         .get_resource_bytes(*addr, struct_tag.clone())?
                         .unwrap();
-                    let resource_old =
-                        MoveValueAnnotator::new(state).view_resource(struct_tag, &resource_data)?;
+                    let resource_old = MoveValueAnnotator::new(state)
+                        .view_resource(struct_tag, Resource::Serialized(Arc::new(resource_data)))?;
                     print_struct_with_indent(&resource_old, 6);
                 }
             };

@@ -16,7 +16,6 @@ use move_core_types::{
     effects::{ChangeSet as BlobChangeSet, Event},
     identifier::IdentStr,
     language_storage::{ModuleId, TypeTag},
-    resolver::MoveResolver,
     value::MoveTypeLayout,
 };
 use move_vm_types::{
@@ -24,6 +23,7 @@ use move_vm_types::{
     effects::ChangeSet,
     gas::GasMeter,
     loaded_data::runtime_types::{CachedStructIndex, StructType, Type},
+    resolver::MoveResolver,
 };
 use std::{borrow::Borrow, sync::Arc};
 

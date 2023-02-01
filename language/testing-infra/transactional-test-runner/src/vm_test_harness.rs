@@ -26,7 +26,6 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag, TypeTag},
-    resolver::MoveResolver,
     value::MoveValue,
 };
 use move_resource_viewer::MoveValueAnnotator;
@@ -38,6 +37,7 @@ use move_vm_runtime::{
     session::{SerializedReturnValues, Session},
 };
 use move_vm_test_utils::{gas_schedule::GasStatus, InMemoryStorage};
+use move_vm_types::resolver::MoveResolver;
 use once_cell::sync::Lazy;
 
 const STD_ADDR: AccountAddress = AccountAddress::ONE;
@@ -64,7 +64,7 @@ pub fn view_resource_in_move_storage(
     match storage.get_resource(&address, &tag).unwrap() {
         None => Ok("[No Resource Exists]".to_owned()),
         Some(data) => {
-            let annotated = MoveValueAnnotator::new(storage).view_resource(&tag, &data)?;
+            let annotated = MoveValueAnnotator::new(storage).view_resource(&tag, data)?;
             Ok(format!("{}", annotated))
         }
     }
@@ -365,7 +365,7 @@ impl<'a> SimpleVMTestAdapter<'a> {
 
         // save changeset
         // TODO support events
-        let (changeset, _events) = session.finish()?;
+        let (changeset, _events) = session.pause()?;
         self.storage.apply(changeset).unwrap();
         Ok(res)
     }

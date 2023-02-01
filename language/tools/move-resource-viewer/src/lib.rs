@@ -17,11 +17,11 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag, TypeTag},
-    resolver::MoveResolver,
     u256,
     value::{MoveStruct, MoveTypeLayout, MoveValue},
-    vm_status::VMStatus,
+    vm_status::{StatusCode, VMStatus},
 };
+use move_vm_types::resolver::{MoveResolver, Resource};
 use serde::ser::{SerializeMap, SerializeSeq};
 use std::{
     convert::{TryFrom, TryInto},
@@ -90,7 +90,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
         }
     }
 
-    pub fn get_resource_bytes(&self, addr: &AccountAddress, tag: &StructTag) -> Option<Vec<u8>> {
+    pub fn get_resource(&self, addr: &AccountAddress, tag: &StructTag) -> Option<Resource> {
         self.cache.state.get_resource(addr, tag).ok()?
     }
 
@@ -150,11 +150,28 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
             .collect::<Result<_>>()
     }
 
-    pub fn view_resource(&self, tag: &StructTag, blob: &[u8]) -> Result<AnnotatedMoveStruct> {
+    pub fn view_resource(
+        &self,
+        tag: &StructTag,
+        resource: Resource,
+    ) -> Result<AnnotatedMoveStruct> {
         let ty = self.cache.resolve_struct(tag)?;
         let struct_def = (&ty).try_into().map_err(into_vm_status)?;
-        let move_struct = MoveStruct::simple_deserialize(blob, &struct_def)?;
-        self.annotate_struct(&move_struct, &ty)
+        let ty_layout = MoveTypeLayout::Struct(struct_def);
+        let blob = match resource {
+            Resource::Serialized(blob) => blob.as_ref().clone(),
+            Resource::Cached(value) => value
+                .simple_serialize(&ty_layout)
+                .ok_or_else(|| PartialVMError::new(StatusCode::INTERNAL_TYPE_ERROR))
+                .map_err(into_vm_status)?,
+        };
+
+        if let MoveTypeLayout::Struct(struct_def) = ty_layout {
+            let move_struct = MoveStruct::simple_deserialize(&blob, &struct_def)?;
+            self.annotate_struct(&move_struct, &ty)
+        } else {
+            unreachable!()
+        }
     }
 
     pub fn move_struct_fields(
