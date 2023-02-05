@@ -21,7 +21,7 @@ use move_vm_types::{
     resolver::{MoveResolver, Resource},
     values::{GlobalValue, Value},
 };
-use std::{collections::btree_map::BTreeMap, sync::Arc};
+use std::collections::btree_map::BTreeMap;
 
 pub struct AccountDataCache {
     data_map: BTreeMap<Type, (MoveTypeLayout, GlobalValue)>,
@@ -100,11 +100,10 @@ impl<'r, 'l, S: MoveResolver> TransactionDataCache<'r, 'l, S> {
 
                 match op {
                     Op::New(val) => {
-                        resources.insert(struct_tag, Op::New(Data::Cached(Arc::new(val), layout)));
+                        resources.insert(struct_tag, Op::New(Data::from_value(val, layout)));
                     }
                     Op::Modify(val) => {
-                        resources
-                            .insert(struct_tag, Op::Modify(Data::Cached(Arc::new(val), layout)));
+                        resources.insert(struct_tag, Op::Modify(Data::from_value(val, layout)));
                     }
                     Op::Delete => {
                         resources.insert(struct_tag, Op::Delete);
@@ -205,7 +204,7 @@ impl<'r, 'l, S: MoveResolver> DataStore for TransactionDataCache<'r, 'l, S> {
                             GlobalValue::cached(val)?
                         }
                         Resource::Cached(value) => {
-                            // TODO: Fix this to avoid serialisation!
+                            // TODO: Fix this to avoid serialization!
                             let blob = match value.simple_serialize(&ty_layout) {
                                 Some(blob) => blob,
                                 None => {

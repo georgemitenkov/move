@@ -17,7 +17,6 @@ use move_vm_types::{
 use std::{
     collections::{btree_map, BTreeMap},
     fmt::Debug,
-    sync::Arc,
 };
 
 #[cfg(feature = "table-extension")]
@@ -316,11 +315,12 @@ impl ResourceResolver for InMemoryStorage {
         tag: &StructTag,
     ) -> Result<Option<Resource>, Self::Error> {
         if let Some(account_storage) = self.accounts.get(address) {
-            return Ok(account_storage
+            let res = account_storage
                 .resources
                 .get(tag)
                 .cloned()
-                .map(|blob| Resource::Serialized(Arc::new(blob))));
+                .map(Resource::from);
+            return Ok(res);
         }
         Ok(None)
     }

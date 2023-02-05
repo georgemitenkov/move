@@ -18,6 +18,18 @@ pub enum Resource {
     Cached(Arc<Value>),
 }
 
+impl From<Vec<u8>> for Resource {
+    fn from(blob: Vec<u8>) -> Self {
+        Resource::Serialized(Arc::new(blob))
+    }
+}
+
+impl From<&Vec<u8>> for Resource {
+    fn from(blob: &Vec<u8>) -> Self {
+        Resource::Serialized(Arc::new(blob.clone()))
+    }
+}
+
 impl From<Data> for Resource {
     fn from(data: Data) -> Self {
         match data {

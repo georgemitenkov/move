@@ -31,7 +31,6 @@ use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Arc,
 };
 
 const TEST_ADDR: &str = "0x3";
@@ -404,7 +403,7 @@ impl<'a> ResourceResolver for HarnessProxy<'a> {
             .borrow()
             .get(&(*address, typ.clone()))
             .cloned();
-        Ok(res.map(|blob| Resource::Serialized(Arc::new(blob))))
+        Ok(res.map(Resource::from))
     }
 }
 

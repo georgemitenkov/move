@@ -29,6 +29,14 @@ pub enum Data {
 }
 
 impl Data {
+    pub fn from_bytes(blob: Vec<u8>) -> Data {
+        Data::Serialized(Arc::new(blob))
+    }
+
+    pub fn from_value(value: Value, layout: MoveTypeLayout) -> Data {
+        Data::Cached(Arc::new(value), layout)
+    }
+
     pub fn simple_serialize(&self) -> Option<Vec<u8>> {
         match self {
             Data::Serialized(blob) => Some(blob.as_ref().clone()),

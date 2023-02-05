@@ -26,7 +26,6 @@ use std::{
     convert::{TryFrom, TryInto},
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 type Event = (Vec<u8>, u64, TypeTag, Vec<u8>);
@@ -431,7 +430,7 @@ impl ResourceResolver for OnDiskStateView {
         struct_tag: &StructTag,
     ) -> Result<Option<Resource>, Self::Error> {
         self.get_resource_bytes(*address, struct_tag.clone())
-            .map(|maybe_bytes| maybe_bytes.map(|blob| Resource::Serialized(Arc::new(blob))))
+            .map(|maybe_bytes| maybe_bytes.map(Resource::from))
     }
 }
 
